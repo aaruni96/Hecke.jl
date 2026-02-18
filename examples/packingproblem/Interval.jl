@@ -13,19 +13,25 @@ struct rectangle
   i1::interval    # interval on X axis
   i2::interval    # interval on Y axis
 
-  function rectangle(a::Number,b::Number,c::Number,d::Number)
-    println(a)
-    println(b)
-    println(c)
-    println(d)
+  function rectangle(
+    a::Union{Rational, QQFieldElem},
+    b::Union{Rational, QQFieldElem},
+    c::Union{Rational, QQFieldElem},
+    d::Union{Rational, QQFieldElem}
+  )
     @assert a<b "out of order"
     @assert c<d "out of order"
     return new(interval(a,b), interval(c,d))
   end
 
-  function rectangle(k::Integer, x::QQFieldElem=QQ(0), y::QQFieldElem=QQ(0),r::Bool=false)
-    i1 = interval(0, 1//k)
-    i2 = interval(0, 1//(k+1))
+  function rectangle(
+    k::Integer,
+    x::QQFieldElem=QQ(0),
+    y::QQFieldElem=QQ(0),
+    r::Bool=false
+  )
+    i1 = interval(0, 1//(k+1))
+    i2 = interval(0, 1//k)
     if r
       i1, i2 = i2, i1
     end
@@ -102,18 +108,28 @@ function intersect(r1::rectangle, r2::rectangle) :: Union{rectangle, Bool}
 end
 #export interval
 
-# step 1: define big square as r0
+rectarray = [
+  rectangle(1),
+  rectangle(2, QQ(1//2), QQ(0), true),
+  rectangle(3),
+  rectangle(4)
+]
 
-#r0 = rectangle(interval(0,1), interval(1,0))
-r0 = rectangle(0,1,0,1)
+if :Plots in names(Main, imported=true)
 
-#step2: define the first rectangle
-#r1 = rectangle(interval(0, 1//2), interval(0, 1))
-r1 = rectangle(0,1//2, 0, 1)
+  # plot(bar([1//2,1//4, 3//4], [1,1,1], bar_width=[1,0.5, 0.5], color=collect(colors), fillto = [0,0,0.5], alpha = [0.1, 0.8, 0.8]))
 
-#step3: check that r1 lives inside r0
-#i.e., intersect(r0, r1) = true
-# advanced: intersect(r0, r1) = r2
+  colors = collect(keys(Plots.Colors.color_names))
 
-intersect(r0, r1)
-# plot(bar([1//2,1//4, 3//4], [1,1,1], bar_width=[1,0.5, 0.5], color=collect(colors), fillto = [0,0,0.5], alpha = [0.1, 0.8, 0.8]))
+  plot(
+    bar(
+      Rational.([midpoint(r.i1) for r in rectarray]), #midpoint of bar
+      Rational.([r.i2.b for r in rectarray]), # height of bar
+      bar_width = Rational.([length(r.i1) for r in rectarray]),
+      color = colors,
+      fillto = Rational.([r.i2.a for r in rectarray]),
+      alpha = [0.8 for r in rectarray]
+    )
+  )
+  
+end
