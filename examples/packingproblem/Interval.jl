@@ -12,14 +12,58 @@ end
 struct rectangle
   i1::interval    # interval on X axis
   i2::interval    # interval on Y axis
+
   function rectangle(a::Number,b::Number,c::Number,d::Number)
+    println(a)
+    println(b)
+    println(c)
+    println(d)
     @assert a<b "out of order"
     @assert c<d "out of order"
     return new(interval(a,b), interval(c,d))
   end
+
+  function rectangle(k::Integer, x::QQFieldElem=QQ(0), y::QQFieldElem=QQ(0),r::Bool=false)
+    i1 = interval(0, 1//k)
+    i2 = interval(0, 1//(k+1))
+    if r
+      i1, i2 = i2, i1
+    end
+    i1 = i1 + x
+    i2 = i2 + y
+    return new(i1, i2)
+  end
+
+  function rectangle(k::Integer, x::Rational=0, y::Rational=0, r::Bool=false)
+    println(k)
+    println(x)
+    println(y)
+    println(r)
+    return rectangle(k, QQ(x), QQ(y), r)
+  end
+
+  function rectangle(k::Integer, r::Bool=false)
+    return rectangle(k, QQ(0), QQ(0), r)
+  end
+
   rectangle(i1::interval, i2::interval) = new(i1, i2)
 end
 
+function Base.:+(i::interval, x::QQFieldElem)
+  return interval(i.a+x, i.b+x)
+end
+
+function Base.:+(i::interval, x::Rational)
+  return i+QQ(x)
+end
+
+function Base.:+(x::Rational, i::interval)
+  return i + QQ(x)
+end
+
+function Base.:+(x::QQFieldElem, i::interval)
+  return i + x
+end
 
 function midpoint(i::interval)
   return (i.a + i.b ) // 2
