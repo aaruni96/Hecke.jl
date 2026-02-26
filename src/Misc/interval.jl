@@ -14,10 +14,10 @@ struct rectangle
   i2::interval    # interval on Y axis
 
   function rectangle(
-    a::Union{Rational, QQFieldElem},
-    b::Union{Rational, QQFieldElem},
-    c::Union{Rational, QQFieldElem},
-    d::Union{Rational, QQFieldElem}
+    a::QQFieldElem,
+    b::QQFieldElem,
+    c::QQFieldElem,
+    d::QQFieldElem
   )
     @assert a<b "out of order"
     @assert c<d "out of order"
@@ -25,6 +25,15 @@ struct rectangle
   end
 
   function rectangle(
+    a::Rational,
+    b::Rational,
+    c::Rational,
+    d::Rational
+  )
+    return rectangle(QQ(a), QQ(b), QQ(c), QQ(d))
+  end
+
+  function rectangle(     ##
     k::Integer,
     x::QQFieldElem=QQ(0),
     y::QQFieldElem=QQ(0),
@@ -40,17 +49,24 @@ struct rectangle
     return new(i1, i2)
   end
 
-  function rectangle(k::Integer, x::Rational=0, y::Rational=0, r::Bool=false)
+  #=
+  function rectangle(     ##
+    k::Integer,
+    x::Rational=0//1,
+    y::Rational=0//1,
+    r::Bool=false
+  )
     println(k)
     println(x)
     println(y)
     println(r)
     return rectangle(k, QQ(x), QQ(y), r)
   end
+  =#
 
-  function rectangle(k::Integer, r::Bool=false)
-    return rectangle(k, QQ(0), QQ(0), r)
-  end
+#  function rectangle(k::Integer, r::Bool=false)
+#    return rectangle(k, QQ(0), QQ(0), r)
+#  end
 
   rectangle(i1::interval, i2::interval) = new(i1, i2)
 end
@@ -108,12 +124,19 @@ function intersect(r1::rectangle, r2::rectangle) :: Union{rectangle, Bool}
 end
 #export interval
 
-rectarray = [
-  rectangle(1),
-  rectangle(2, QQ(1//2), QQ(0), true),
-  rectangle(3),
-  rectangle(4)
-]
+function rectarray()
+  return [
+    rectangle(1),
+    rectangle(2, QQ(1//2), QQ(0), true),
+    rectangle(3),
+    rectangle(4)
+  ]
+end
+
+export interval
+export rectangle
+export intersect
+export rectarray
 
 #=
 if :Plots in names(Main, imported=true)
