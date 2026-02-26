@@ -1,7 +1,7 @@
 using Hecke
 
 """
-Aaruni's special intervals for packing rectangles in squares
+One dimensional intervals in QQ.
 """
 struct interval
   a::QQFieldElem
@@ -9,6 +9,18 @@ struct interval
   interval(a, b) = a > b ? error("out of order") : new(a, b)
 end
 
+function ==(i1::interval, i2::interval)
+  if i1.a == i2.a && i1.b == i2.b
+    return true
+  end
+  return false
+end
+
+
+"""
+A rectangle, expressed as a product of two intervals. Interval i1 is the interval on X-axis.
+Interval i2 is the interval on y-axis.
+"""
 struct rectangle
   i1::interval    # interval on X axis
   i2::interval    # interval on Y axis
@@ -105,24 +117,26 @@ end
 """
 test test test
 """
-function intersect(a::interval, b::interval) :: Union{interval, Bool}
+function intersect(a::interval, b::interval)
   try
     i = interval(maximum([a.a, b.a]), minimum([a.b, b.b]))
-    return i
+    if (length(i) == 0)
+      return (false, )
+    end
+    return (true, i)
   catch
-    return false
+    return (false, )
   end
 end
 
-function intersect(r1::rectangle, r2::rectangle) :: Union{rectangle, Bool}
+function intersect(r1::rectangle, r2::rectangle)
   i1 = intersect(r1.i1, r2.i1)
   i2 = intersect(r1.i2, r2.i2)
-  if typeof(i1) == Bool || typeof(i2) == Bool
-    return false
+  if ! i1[1] || ! i2[1]
+    return (false, )
   end
-  return rectangle(i1, i2)
+  return (true, rectangle(i1[2], i2[2]))
 end
-#export interval
 
 function rectarray()
   return [
@@ -147,12 +161,12 @@ if :Plots in names(Main, imported=true)
 
   plot(
     bar(
-      Rational.([midpoint(r.i1) for r in rectarray]), #midpoint of bar
-      Rational.([r.i2.b for r in rectarray]), # height of bar
-      bar_width = Rational.([length(r.i1) for r in rectarray]),
+      Rational.([midpoint(r.i1) for r in rects]), #midpoint of bar
+      Rational.([r.i2.b for r in rects]), # height of bar
+      bar_width = Rational.([length(r.i1) for r in rects]),
       color = colors,
-      fillto = Rational.([r.i2.a for r in rectarray]),
-      alpha = [0.8 for r in rectarray]
+      fillto = Rational.([r.i2.a for r in rects]),
+      alpha = [0.8 for r in rects]
     )
   )
 
