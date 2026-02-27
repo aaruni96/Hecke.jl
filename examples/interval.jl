@@ -9,6 +9,21 @@ struct interval
   a::QQFieldElem
   b::QQFieldElem
   interval(a, b) = a > b ? error("out of order") : new(a, b)
+
+  function interval(a, b)
+    if a > b
+      println("Problem while contsructing interval")
+      @show a
+      @show b
+      error("Out of order error! a must always be smaller than b!")
+    else
+      return new(a,b)
+    end
+  end
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", i::interval)
+  print("[$(i.a) $(i.b)]")
 end
 
 function Base.:(==)(i1::interval, i2::interval)
@@ -17,6 +32,17 @@ function Base.:(==)(i1::interval, i2::interval)
   end
   return false
 end
+
+
+function Base.show(io::IO, r::rectangle)
+  print("[$(r.i1.a) $(r.i1.b)][$(r.i2.a) $(r.i2.b)]")
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", r::rectangle)
+    print("[$(r.i1.a) $(r.i1.b)][$(r.i2.a) $(r.i2.b)]")
+end
+
+
 
 """
 A rectangle, expressed as a product of two intervals. Interval i1 is the interval on X-axis.
@@ -76,27 +102,8 @@ struct rectangle
       return rectangle(k, QQ(x), QQ(y), r)
     end
 
-  #=
-  function rectangle(     ##
-    k::Integer,
-    x::Rational=0//1,
-    y::Rational=0//1,
-    r::Bool=false
-  )
-    println(k)
-    println(x)
-    println(y)
-    println(r)
-    return rectangle(k, QQ(x), QQ(y), r)
-  end
-  =#
-
-#  function rectangle(k::Integer, r::Bool=false)
-#    return rectangle(k, QQ(0), QQ(0), r)
-#  end
-
   rectangle(i1::interval, i2::interval) = new(i1, i2)
-end
+end #end of rectangle type
 
 function Base.:+(i::interval, x::QQFieldElem)
   return interval(i.a+x, i.b+x)
@@ -210,7 +217,42 @@ function rectarray()
 end
 
 
-function
+"""
+r1 is a big rectangle
+r2 is a small rectangle
+
+cut out an r2 shaped hole into r1
+"""
+function Base.:-(r1::rectangle, r2::rectangle)
+  i = intersect(r1, r2)
+  if !i[1]
+    error("Cannot subtract non intersecting rectanlges!")
+  end
+  if i[2].i1 == r1.i1
+    ni1 = r1.i1
+    ni2 = interval(0, 0)
+    try
+      ni2 = interval(r2.i2.b, r1.i2.b)
+    catch
+      error("Can only subtract a small rectangle from a larger rectangle")
+    end
+    return rectangle(ni1, ni2)
+  elseif i[2].i2 == r1.i2
+    ni2 = r1.i2
+    ni1 = interval(0,0)
+    try
+      ni1 = interval(r2.i1.b, r1.i1.b)
+    catch
+      error("Can only subtract a small rectangle from a larger rectangle")
+    end
+    return rectangle(ni1, ni2)
+  else
+    error(
+      "for our purposes, one of the above two must always be true (even though this is not true",
+      "in general)"
+    )
+  end
+end
 
 function place_next(rects::Vector{rectangle}, boxes::Vector{rectangle})
     k = length(rects) + 1
