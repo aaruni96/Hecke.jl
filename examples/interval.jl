@@ -23,7 +23,7 @@ struct interval
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", i::interval)
-  print("[$(i.a) $(i.b)]")
+  print(io, "[$(i.a) $(i.b)]")
 end
 
 function Base.:(==)(i1::interval, i2::interval)
@@ -32,17 +32,6 @@ function Base.:(==)(i1::interval, i2::interval)
   end
   return false
 end
-
-
-function Base.show(io::IO, r::rectangle)
-  print("[$(r.i1.a) $(r.i1.b)][$(r.i2.a) $(r.i2.b)]")
-end
-
-function Base.show(io::IO, mime::MIME"text/plain", r::rectangle)
-    print("[$(r.i1.a) $(r.i1.b)][$(r.i2.a) $(r.i2.b)]")
-end
-
-
 
 """
 A rectangle, expressed as a product of two intervals. Interval i1 is the interval on X-axis.
@@ -104,6 +93,16 @@ struct rectangle
 
   rectangle(i1::interval, i2::interval) = new(i1, i2)
 end #end of rectangle type
+
+function Base.show(io::IO, r::rectangle)
+  print(io, "[$(r.i1.a) $(r.i1.b)][$(r.i2.a) $(r.i2.b)]")
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", r::rectangle)
+    print(io, "[$(r.i1.a) $(r.i1.b)][$(r.i2.a) $(r.i2.b)]")
+end
+
+
 
 function Base.:+(i::interval, x::QQFieldElem)
   return interval(i.a+x, i.b+x)
@@ -184,15 +183,21 @@ end
 test test test
 """
 function intersect(a::interval, b::interval)
-  try
+  il = maximum([a.a, b.a])
+  iu = minimum([a.b, b.b])
+  if il <= iu
     i = interval(maximum([a.a, b.a]), minimum([a.b, b.b]))
     if (length(i) == 0)
       return (false, )
     end
     return (true, i)
-  catch
+  else
     return (false, )
   end
+end
+
+function area(r::rectangle)
+  return length(r.i1) * length(r.i2)
 end
 
 """
@@ -254,6 +259,15 @@ function Base.:-(r1::rectangle, r2::rectangle)
   end
 end
 
+function add_to_list!(newrect::rectangle, rectlist::Vector{rectangle})
+  for r in rectlist
+    if intersect(newrect, r)[1]
+      error("could not tile without intersection!")
+    end
+  end
+  push!(rectlist, newrect)
+end
+
 function place_next(rects::Vector{rectangle}, boxes::Vector{rectangle})
     k = length(rects) + 1
 
@@ -261,26 +275,27 @@ function place_next(rects::Vector{rectangle}, boxes::Vector{rectangle})
 
     t = rectangle(0)
     j = -1
-    # bad rule 1: place in first box
-    for i in length(boxes)
+    # bad rule 1: place in first box\
+    for i in 1:length(boxes)
       #check if rectangle fits in boxes
-      if contains(boxes[i], rn+(boxes[i].i1.a, boxes[i].i2.a))
+      rnk = rn+(boxes[i].i1.a, boxes[i].i2.a)
+      if contains(boxes[i], rnk)
         t = boxes[i]
         j = i
         break
       end
     end
     if j == -1
-      plot_stuff(boxes)
       println("=====================")
       println("Could not fit rectnew in a box")
       println("=====================")
+      error("fail here")
       return rects, boxes
       #error("rectangle didn't fit in any box")
     end
     newrects = deepcopy(rects)
-
-    push!(newrects, rn+t)
+    rnt = rn+t
+    add_to_list!(rnt, newrects)
 
     # questionable rule2: update the boxlist
     # split the box into two at some point in some direction
@@ -294,6 +309,13 @@ function place_next(rects::Vector{rectangle}, boxes::Vector{rectangle})
       t1, t2 = rectangle(interval(t.i1.a, c[1]), t.i2), rectangle(interval(c[1], t.i1.b), t.i2)
     end
 
+    if intersect(rnt, t1)[1]
+      t1 = t1 - rnt
+    elseif intersect(rnt, t2)[1]
+      t2 = t2 - rnt
+    else
+      error("impossible case is an error")
+    end
     newboxes[j] = t1
     push!(newboxes, t2)
 
@@ -332,7 +354,8 @@ function plot_stuff(rects)
     # plot(bar([1//2,1//4, 3//4], [1,1,1], bar_width=[1,0.5, 0.5], color=collect(colors), fillto = [0,0,0.5], alpha = [0.1, 0.8, 0.8]))
 
     colors = collect(keys(Plots.Colors.color_names))
-    push!(rects, rectangle(0//1,1//1,0//1,1//1))
+    prects = deepcopy(rects)
+    push!(prects, rectangle(0//1,1//1,0//1,1//1))
     plot(
       bar(
         Rational.([midpoint(r.i1) for r in rects]), #midpoint of bar
@@ -341,7 +364,9 @@ function plot_stuff(rects)
         color = colors,
         fillto = Rational.([r.i2.a for r in rects]),
         alpha = [0.8 for r in rects]
-      )
+      ),
+      show=true,
+      reuse=true
     )
   else
     println("Not plotting")
@@ -361,3 +386,34 @@ export plot_stuff
 end
 
 using .MyModule
+
+#=
+
+rects, boxes = place_first()
+newrects, newboxes = deepcopy(rects), deepcopy(boxes)
+
+i = 3
+while true
+  try
+    newrects, newboxes = place_next(newrects, newboxes)
+    plot_stuff(newrects)
+    i = i+1
+    sleep(1)
+  catch
+    println("Reached a point where we can no longer stupidly fit things!")
+    @show i
+    break
+  end
+end
+
+
+
+
+=====================
+Could not fit rectnew in a box
+=====================
+Reached a point where we can no longer stupidly fit things!
+i = 757
+
+=#
+
