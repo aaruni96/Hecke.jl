@@ -20,7 +20,7 @@ struct interval
       return new(a,b)
     end
   end
-end
+end # end struct
 
 function Base.show(io::IO, mime::MIME"text/plain", i::interval)
   print(io, "[$(i.a) $(i.b)]")
@@ -271,7 +271,7 @@ end
 function place_next(rects::Vector{rectangle}, boxes::Vector{rectangle})
     k = length(rects) + 1
 
-    rn = rectangle(k)
+    rn = rectangle(k, QQ(0), QQ(0), false)
 
     t = rectangle(0)
     j = -1
@@ -309,6 +309,7 @@ function place_next(rects::Vector{rectangle}, boxes::Vector{rectangle})
       t1, t2 = rectangle(interval(t.i1.a, c[1]), t.i2), rectangle(interval(c[1], t.i1.b), t.i2)
     end
 
+    # subtract the latest rectangle from one of the two new boxes
     if intersect(rnt, t1)[1]
       t1 = t1 - rnt
     elseif intersect(rnt, t2)[1]
@@ -319,26 +320,23 @@ function place_next(rects::Vector{rectangle}, boxes::Vector{rectangle})
     newboxes[j] = t1
     push!(newboxes, t2)
 
-    return newrects, newboxes
-
-
-    # subtract the latest rectangle from one of the two new boxes
-
+    # delete any empty boxes
+    deleteat!(newboxes, area.(newboxes) .== 0)
 
     return newrects, newboxes
-
-
-
 end
 
 function place_first()
     rects = [
         rectangle(1, 0, 0, false),
         rectangle(2, 1//2, 0, true)
+        #rectangle(2, 1//2, 0, false)
         ]
 
     boxes = [
         rectangle(1//2, 1//1, 1//3, 1//1)
+        #rectangle(1//2+1//3, 1//1, 0//1, 1//2),
+        #rectangle(1//2, 1//1, 1//2, 1//1)
     ]
     return (rects, boxes)
 end
@@ -380,12 +378,13 @@ export interval
 export place_first
 export place_next
 export plot_stuff
+export area
 
 
 
 end
 
-using .MyModule
+# using .MyModule
 
 #=
 
@@ -398,7 +397,8 @@ while true
     newrects, newboxes = place_next(newrects, newboxes)
     plot_stuff(newrects)
     i = i+1
-    sleep(1)
+    println(i)
+    sleep(0.1)
   catch
     println("Reached a point where we can no longer stupidly fit things!")
     @show i
