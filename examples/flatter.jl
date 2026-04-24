@@ -23,7 +23,7 @@ julia> m = [[1 0 331 303]
  0  0  628    0
  0  0    0  628
 
-julia> u = Oscar.gso_with_prec(v, 64);
+julia> u = Flatter.gso_with_prec(v, 64);
 
 julia> u * transpose(matrix(RR, m));
 
@@ -102,6 +102,36 @@ function potential(profile::Vector{ArbFieldElem})
     a += (n - i + 1) * profile[i]
   end
   return a
+end
+
+
+@doc raw"""
+Profile of a lattice is defined as the volume of a special set D where
+
+D = union of all [l_next, l_current] where l_next < l_current
+
+"""
+function drop(v)
+    cur = curmin = curmax = v[1]
+    curstart = 1
+    dropset = []
+    for i in range(2,length(v))
+        next = v[i]
+        if (next < cur) || (next < curmax)
+            curmin = min(curmin, next)
+        else
+            push!(dropset, v[curstart:i-1])
+            curmax = max(next, curmax)
+            curstart = i
+        end
+        cur = next
+
+        if i == length(v)
+            # end of loop
+            push!(dropset, v[curstart:i])
+        end
+    end
+    return dropset
 end
 
 
