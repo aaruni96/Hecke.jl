@@ -191,12 +191,9 @@ function size_reduce_algo_5(B, c)
     U = matrix(ZZ, Matrix{Int}(I,n,n))
     pprime = Int(ceil(c + log2(n)) + 2)
     for j in 2:n
-        println("j = $j")
-        for i in j-1:1
-            println("i = $i")
+        for i in (j-1):-1:1
             q = round(b[i,j,j-1] / b[i,i,1])
             for k in 1:i
-                println("k = $k")
                 b[k,j,j-i+1] = b[k,j,j-i] - (q * b[k,i,i-k+1])
                 U[k,j] = U[k,j] - ZZ(q * U[k,i])%(ZZ(2)^pprime)
             end
@@ -214,7 +211,7 @@ end
 
 function run()
     a, b = rand(5:100,2)
-    B = rand_upper_triangular(a, 3)
+    B = rand_upper_triangular(a, b)
     c = estimate_condition_number(B)
     c = Int(round(c))+1
     Bprime, U = size_reduce_algo_5(B,c)
