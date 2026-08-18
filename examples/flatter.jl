@@ -136,12 +136,10 @@ function drop(v)
 end
 
 
-end
-
-#=========================
+#=
 # size reduction algorithm
 # algorithm 5 from paper
-#=========================
+=#
 
 
 function rand_upper_triangular(s,n)
@@ -230,3 +228,4 @@ function run()
 end
 
 
+end
