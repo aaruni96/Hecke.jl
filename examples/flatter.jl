@@ -1,5 +1,6 @@
 module Flatter
 using Hecke
+using LinearAlgebra
 
 function proj(v::Vector{ArbFieldElem}, u::Vector{ArbFieldElem})::Vector{ArbFieldElem}
     retval = dot(v,u) / dot(u,u) .* u
@@ -136,3 +137,96 @@ end
 
 
 end
+
+#=========================
+# size reduction algorithm
+# algorithm 5 from paper
+#=========================
+
+
+function rand_upper_triangular(s,n)
+    println("entering rand_upper_triangular")
+    return matrix(ZZ, triu(rand(1:s,n,n)))
+end
+
+function norm_schur(A)
+    println("entering norm_schur")
+    n = nrows(A)
+    println("calculated n")
+    A = A.^2
+    println("calculated A^2")
+    s = BigFloat(sum(A))
+    println("calculated s")
+    return sqrt(s)
+end
+
+function estimate_condition_number(B)
+    println("entering estimate_condition_number")
+    # this appears to be *MUCH* larger than the condition number
+    S = BigFloat.(transpose(B)*B)
+    c = norm_schur(S)*norm_schur(inv(S))
+    return c
+end
+
+function play()
+    a, b = rand(5:100,10)
+    println(a)
+    println(b)
+    println("=========")
+    B = rand_upper_triangular(a, b)
+
+    # estimate using schur index
+    c = estimate_condition_number(B)
+
+    # straight up calculate from eigen values
+    S = transpose(B)*B
+    ev = BigFloat.(eigenvalues(RealField(), ZZMatrix(S)))
+    k = sqrt(maximum(ev)/minimum(ev))
+    println(minimum(ev))
+    return c,k, c-k
+end
+
+function size_reduce_algo_5(B, c)
+    n = nrows(B)
+    b = zeros(n,n,n)
+    b[:,:,1] .= B
+    U = matrix(ZZ, Matrix{Int}(I,n,n))
+    pprime = Int(ceil(c + log2(n)) + 2)
+    for j in 2:n
+        println("j = $j")
+        for i in j-1:1
+            println("i = $i")
+            q = round(b[i,j,j-1] / b[i,i,1])
+            for k in 1:i
+                println("k = $k")
+                b[k,j,j-i+1] = b[k,j,j-i] - (q * b[k,i,i-k+1])
+                U[k,j] = U[k,j] - ZZ(q * U[k,i])%(ZZ(2)^pprime)
+            end
+        end
+    end
+    Bprime = zeros(n,n)
+    for j in 1:n
+        for i in 1:j
+            Bprime[i,j] = b[i,j,j-i+1]
+        end
+    end
+    Bprime = matrix(ZZ, Bprime)
+    return Bprime, U
+end
+
+function run()
+    a, b = rand(5:100,2)
+    B = rand_upper_triangular(a, 3)
+    c = estimate_condition_number(B)
+    c = Int(round(c))+1
+    Bprime, U = size_reduce_algo_5(B,c)
+    #check
+    if Bprime != B*U
+        println("Bprime is $Bprime")
+        println("BU is $(B*U)")
+        error("Bprime should be equal to BU")
+    end
+    return Bprime, U
+end
+
+
