@@ -144,6 +144,7 @@ end
 
 function rand_upper_triangular(s,n)
     println("entering rand_upper_triangular")
+    println("Generating $n x $n matrix with elements of maximum size $s")
     return matrix(ZZ, triu(rand(1:s,n,n)))
 end
 
@@ -163,7 +164,7 @@ function estimate_condition_number(B)
     # this appears to be *MUCH* larger than the condition number
     S = BigFloat.(transpose(B)*B)
     c = norm_schur(S)*norm_schur(inv(S))
-    return c
+    return log2(c)
 end
 
 function play()
@@ -189,13 +190,14 @@ function size_reduce_algo_5(B, c)
     b = zeros(n,n,n)
     b[:,:,1] .= B
     U = matrix(ZZ, Matrix{Int}(I,n,n))
-    pprime = Int(ceil(c + log2(n)) + 2)
+    pprime = ceil(Int, c + log2(n)) + 2
+    modval = ZZ(1) << pprime
     for j in 2:n
         for i in (j-1):-1:1
             q = round(b[i,j,j-1] / b[i,i,1])
             for k in 1:i
                 b[k,j,j-i+1] = b[k,j,j-i] - (q * b[k,i,i-k+1])
-                U[k,j] = U[k,j] - ZZ(q * U[k,i])%(ZZ(2)^pprime)
+                U[k,j] = U[k,j] - ZZ(q * U[k,i])%(modval)
             end
         end
     end
@@ -210,10 +212,10 @@ function size_reduce_algo_5(B, c)
 end
 
 function run()
-    a, b = rand(5:100,2)
+    a, b = rand(5:500,2)
     B = rand_upper_triangular(a, b)
     c = estimate_condition_number(B)
-    c = Int(round(c))+1
+    c = ceil(Int, c)
     Bprime, U = size_reduce_algo_5(B,c)
     #check
     if Bprime != B*U
@@ -222,6 +224,95 @@ function run()
         error("Bprime should be equal to BU")
     end
     return Bprime, U
+end
+
+# scale and round algorithm 6
+# also already implemented in Hecke
+# src/Misc/Matrix.jl:function round_scale(a::Matrix{BigFloat}, l::Int)
+# but slightly different in ways that I am not fully sure about
+
+function scale_and_round_alg_6(B, gamma, c)
+  gammaprime = gamma * (1 // (ZZ(1) << c)) # 2 ^(-c) is the same as 1/(2^c), which is the same as bitshifting
+  n = nrows(B)
+  d = ceil(ZZRingElem, c + log2(n) - log2(BigFloat(gammaprime)) - log2(maximum(abs, B))) + 1
+  B = (BigFloat(2)^Int(d)) .* B
+  Bprime = round.(ZZRingElem, B)
+  return Bprime, d
+  # TODO
+  # check that B is gamma-simlar to Bprime * 2^d
+end
+
+
+# fakeout QR
+
+function qr(A::ZZMatrix)
+
+  l = BigFloat.(A)
+  l = Matrix(l)
+  l = LinearAlgebra.qr(l).R
+  l = matrix(ZZ, l)
+  println("Done QR")
+  return l
+
+end
+
+# algorithm 7 from the paper appendix
+
+function compress_lattice_alg_7(B, gamma, c)
+  n = nrows(B)
+  gammaprime = gamma * BigFloat(2)^(-c-1) / sqrt(2 * n^3)
+  println("caclulating QR...")
+  QR = qr(B)  #algorithm calls for qr with quality gammaprime/3.
+              #julia's qr does not take quality as input
+              #therefore we must implement it on our own (eventually....)
+  B1 = QR
+  println(typeof(B1))
+  B2, sprime = scale_and_round_alg_6(B1, gammaprime/3, c)
+  B3, Uprime = size_reduce_algo_5(B2, c)
+  l = zeros(n)
+  for i in 1:n
+    l[i] = log2(abs(B3[i,i]))
+  end
+  lprime = l
+  d = zeros(ZZ, n)
+  for k in 1:n-1
+    println("$k of $n")
+    m1 = maximum(l[1:k])
+    m2 = minimum(l[k+1:n])
+    println("$m1, $m2")
+    if m1 + 1 < m2
+      t = floor(ZZ, m2 - m1)
+      for i in k+1:n
+        d[i] = d[i] - t
+        lprime[i] = lprime[i] - t
+      end
+    end
+  end
+  Dprime = matrix(ZZ, zeros(ZZ, n, n))
+  for i in 1:n
+    println(d[i])
+    Dprime[i,i] = ZZ(1) << Int(d[i])
+  end
+  B4 = B3 * Dprime
+  println(gammaprime)
+  B5, sprimeprime = scale_and_round_alg_6(B4, gammaprime/3, c)
+  B6, Uprimeprime = size_reduce_algo_5(B5, c)
+  gammaprimeprime = gamma * 2^(-5)  # 5 is 'O(spread(lprime) + n)'
+  B7, sprimeprimeprime = scale_and_round_alg_6(B6, gammaprimeprime, c)
+  B8, Uprimeprimeprime = size_reduce_algo_5(B7, c)
+  U = Uprime * Dprime * Uprimeprime * Uprimeprimeprime * inv(Dprime)
+  println(-sprime - sprimeprime - sprimeprimeprime)
+  D = BigFloat(2)^Int(-sprime - sprimeprime - sprimeprimeprime) .* Dprime
+  Bhat = B8
+
+  return Bhat, U, D
+end
+
+function spectral_norm(A)
+  # ||A|| is spectral norm of A which is
+  # "largest singular value" of A
+  # which is the maximum eigen value of A
+  return maximum(roots(charpoly(A)))
 end
 
 end
